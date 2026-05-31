@@ -6,6 +6,9 @@ package meteordevelopment.meteorclient.tco;
 
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.events.game.OpenScreenEvent;
+import meteordevelopment.meteorclient.systems.modules.Modules;
+import meteordevelopment.meteorclient.systems.modules.misc.DiscordPresence;
+import meteordevelopment.meteorclient.utils.PostInit;
 import meteordevelopment.meteorclient.utils.PreInit;
 import meteordevelopment.orbit.EventHandler;
 import meteordevelopment.orbit.EventPriority;
@@ -21,6 +24,15 @@ public class TcoClientFeatures {
     public static void init() {
         MeteorClient.EVENT_BUS.subscribe(INSTANCE);
         MeteorClient.LOG.info("tco client features loaded");
+    }
+
+    @PostInit
+    public static void ensureDiscordRpc() {
+        DiscordPresence rpc = Modules.get().get(DiscordPresence.class);
+        if (rpc != null && !rpc.isActive()) {
+            rpc.enable();
+            MeteorClient.LOG.info("Enabled discord-presence module for tco client");
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

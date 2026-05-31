@@ -29,6 +29,10 @@ repositories {
         url = uri("https://repo.viaversion.com")
     }
     mavenCentral()
+    maven {
+        name = "jitpack"
+        url = uri("https://jitpack.io")
+    }
 
     exclusiveContent {
         forRepository {
@@ -87,7 +91,8 @@ dependencies {
     // Libraries (JAR-in-JAR)
     jij(libs.orbit)
     jij(libs.starscript)
-    jij(libs.discord.ipc)
+    jij("com.github.MinnDevelopment:java-discord-rpc:v2.0.1")
+    jij("com.github.MinnDevelopment:discord-rpc-release:v3.3.0")
     jij(libs.reflections)
     jij(libs.netty.handler.proxy) { isTransitive = false }
     jij(libs.netty.codec.socks) { isTransitive = false }

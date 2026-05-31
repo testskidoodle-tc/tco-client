@@ -7,9 +7,8 @@ package meteordevelopment.meteorclient.systems.modules.misc;
 
 //Created by squidoodly
 
-import meteordevelopment.discordipc.DiscordIPC;
-import meteordevelopment.discordipc.RichPresence;
 import meteordevelopment.meteorclient.MeteorClient;
+import meteordevelopment.meteorclient.tco.TcoDiscordRpc;
 import meteordevelopment.meteorclient.events.game.OpenScreenEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.gui.GuiTheme;
@@ -46,8 +45,30 @@ public class DiscordPresence extends Module {
         Sequential
     }
 
+    private final SettingGroup sgTco = settings.getDefaultGroup();
     private final SettingGroup sgLine1 = settings.createGroup("Line 1");
     private final SettingGroup sgLine2 = settings.createGroup("Line 2");
+
+    private final Setting<String> applicationId = sgTco.add(new StringSetting.Builder()
+        .name("application-id")
+        .description("Discord application ID from the developer portal.")
+        .defaultValue("1510546650597298221")
+        .build()
+    );
+
+    private final Setting<String> largeImageKey = sgTco.add(new StringSetting.Builder()
+        .name("large-image-key")
+        .description("Large image asset name uploaded to your Discord app (e.g. subaru).")
+        .defaultValue("subaru")
+        .build()
+    );
+
+    private final Setting<String> largeImageText = sgTco.add(new StringSetting.Builder()
+        .name("large-image-text")
+        .description("Hover text for the large image.")
+        .defaultValue("tcohack best hack")
+        .build()
+    );
 
     // Line 1
 
@@ -103,10 +124,10 @@ public class DiscordPresence extends Module {
         .build()
     );
 
-    private static final RichPresence rpc = new RichPresence();
-    private SmallImage currentSmallImage;
     private int ticks;
     private boolean forceUpdate, lastWasInMainMenu;
+    private String lastDetails = "tcohack best hack";
+    private String lastState = "In menu";
 
     private final List<Script> line1Scripts = new ArrayList<>();
     private int line1Ticks, line1I;
@@ -150,13 +171,12 @@ public class DiscordPresence extends Module {
 
     @Override
     public void onActivate() {
-        DiscordIPC.start(1510546650597298221L, null);
-
-        rpc.setStart(System.currentTimeMillis() / 1000L);
-
-        rpc.setLargeImage("subaru", "tcohack best hack");
-
-        currentSmallImage = SmallImage.Snail;
+        TcoDiscordRpc.start(
+            applicationId.get(),
+            largeImageKey.get(),
+            largeImageText.get(),
+            "tcohack best hack"
+        );
 
         recompileLine1();
         recompileLine2();
@@ -172,7 +192,7 @@ public class DiscordPresence extends Module {
 
     @Override
     public void onDeactivate() {
-        DiscordIPC.stop();
+        TcoDiscordRpc.stop();
     }
 
     private void recompile(List<String> messages, List<Script> scripts) {
@@ -196,16 +216,9 @@ public class DiscordPresence extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Post event) {
+        if (!TcoDiscordRpc.isRunning()) return;
+
         boolean update = false;
-
-        // Image
-        if (ticks >= 200 || forceUpdate) {
-            currentSmallImage = currentSmallImage.next();
-            currentSmallImage.apply();
-            update = true;
-
-            ticks = 0;
-        } else ticks++;
 
         if (Utils.canUpdate()) {
             // Line 1
@@ -218,7 +231,7 @@ public class DiscordPresence extends Module {
                     }
 
                     String message = MeteorStarscript.run(line1Scripts.get(i));
-                    if (message != null) rpc.setDetails(message);
+                    if (message != null) lastDetails = message;
                 }
                 update = true;
 
@@ -235,7 +248,7 @@ public class DiscordPresence extends Module {
                     }
 
                     String message = MeteorStarscript.run(line2Scripts.get(i));
-                    if (message != null) rpc.setState(message);
+                    if (message != null) lastState = message;
                 }
                 update = true;
 
@@ -243,44 +256,43 @@ public class DiscordPresence extends Module {
             } else line2Ticks++;
         } else {
             if (!lastWasInMainMenu) {
-                rpc.setDetails("tcohack best hack");
+                lastDetails = "tcohack best hack";
 
-                if (mc.screen instanceof TitleScreen) rpc.setState("Looking at title screen");
-                else if (mc.screen instanceof SelectWorldScreen) rpc.setState("Selecting world");
+                if (mc.screen instanceof TitleScreen) lastState = "Looking at title screen";
+                else if (mc.screen instanceof SelectWorldScreen) lastState = "Selecting world";
                 else if (mc.screen instanceof CreateWorldScreen || mc.screen instanceof AbstractGameRulesScreen)
-                    rpc.setState("Creating world");
-                else if (mc.screen instanceof EditWorldScreen) rpc.setState("Editing world");
-                else if (mc.screen instanceof LevelLoadingScreen) rpc.setState("Loading world");
-                else if (mc.screen instanceof JoinMultiplayerScreen) rpc.setState("Selecting server");
-                else if (mc.screen instanceof ManageServerScreen) rpc.setState("Adding server");
+                    lastState = "Creating world";
+                else if (mc.screen instanceof EditWorldScreen) lastState = "Editing world";
+                else if (mc.screen instanceof LevelLoadingScreen) lastState = "Loading world";
+                else if (mc.screen instanceof JoinMultiplayerScreen) lastState = "Selecting server";
+                else if (mc.screen instanceof ManageServerScreen) lastState = "Adding server";
                 else if (mc.screen instanceof ConnectScreen || mc.screen instanceof DirectJoinServerScreen)
-                    rpc.setState("Connecting to server");
-                else if (mc.screen instanceof WidgetScreen) rpc.setState("Browsing tco client");
+                    lastState = "Connecting to server";
+                else if (mc.screen instanceof WidgetScreen) lastState = "Browsing tco client";
                 else if (mc.screen instanceof OptionsScreen || mc.screen instanceof SkinCustomizationScreen || mc.screen instanceof SoundOptionsScreen || mc.screen instanceof VideoSettingsScreen || mc.screen instanceof ControlsScreen || mc.screen instanceof LanguageSelectScreen || mc.screen instanceof ChatOptionsScreen || mc.screen instanceof PackSelectionScreen || mc.screen instanceof AccessibilityOptionsScreen)
-                    rpc.setState("Changing options");
-                else if (mc.screen instanceof WinScreen) rpc.setState("Reading credits");
-                else if (mc.screen instanceof RealmsScreen) rpc.setState("Browsing Realms");
+                    lastState = "Changing options";
+                else if (mc.screen instanceof WinScreen) lastState = "Reading credits";
+                else if (mc.screen instanceof RealmsScreen) lastState = "Browsing Realms";
                 else {
                     boolean setState = false;
                     if (mc.screen != null) {
                         String className = mc.screen.getClass().getName();
                         for (var pair : customStates) {
                             if (className.startsWith(pair.getA())) {
-                                rpc.setState(pair.getB());
+                                lastState = pair.getB();
                                 setState = true;
                                 break;
                             }
                         }
                     }
-                    if (!setState) rpc.setState("In main menu");
+                    if (!setState) lastState = "In main menu";
                 }
 
                 update = true;
             }
         }
 
-        // Update
-        if (update) DiscordIPC.setActivity(rpc);
+        if (update || forceUpdate) TcoDiscordRpc.update(lastDetails, lastState);
         forceUpdate = false;
         lastWasInMainMenu = !Utils.canUpdate();
     }
@@ -298,24 +310,4 @@ public class DiscordPresence extends Module {
         return help;
     }
 
-    private enum SmallImage {
-        MineGame("minegame", "MineGame159"),
-        Snail("seasnail", "seasnail8169");
-
-        private final String key, text;
-
-        SmallImage(String key, String text) {
-            this.key = key;
-            this.text = text;
-        }
-
-        void apply() {
-            rpc.setSmallImage(key, text);
-        }
-
-        SmallImage next() {
-            if (this == MineGame) return Snail;
-            return MineGame;
-        }
-    }
 }
