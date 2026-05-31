@@ -1,0 +1,11 @@
+{
+  "tco.title_theme": {
+    "sounds": [
+      {
+        "name": "meteor-client:tco/title_theme",
+        "stream": true
+      }
+    ],
+    "subtitle": "tco client"
+  }
+}

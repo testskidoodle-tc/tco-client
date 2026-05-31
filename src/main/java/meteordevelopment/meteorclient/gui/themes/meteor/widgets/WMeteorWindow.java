@@ -34,7 +34,8 @@ public class WMeteorWindow extends WWindow implements MeteorWidget {
 
         @Override
         protected void onRender(GuiRenderer renderer, double mouseX, double mouseY, double delta) {
-            renderer.quad(this, theme().accentColor.get());
+            renderer.quad(this, theme().backgroundColor.get());
+            renderer.quad(x, y + height - 2, width, 2, theme().accentColor.get());
         }
     }
 }

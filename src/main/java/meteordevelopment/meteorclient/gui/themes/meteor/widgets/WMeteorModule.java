@@ -43,7 +43,7 @@ public class WMeteorModule extends WPressable implements MeteorWidget {
 
     @Override
     public double pad() {
-        return theme.scale(4);
+        return theme.scale(3);
     }
 
     @Override

@@ -268,8 +268,8 @@ public class ModulesScreen extends TabScreen {
 
         @Override
         protected void onCalculateWidgetPositions() {
-            double pad = theme.scale(4);
-            double h = theme.scale(40);
+            double pad = theme.scale(3);
+            double h = theme.scale(32);
 
             double x = this.x + pad;
             double y = this.y;
