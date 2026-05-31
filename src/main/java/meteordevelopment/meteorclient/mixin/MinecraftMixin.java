@@ -177,7 +177,16 @@ public abstract class MinecraftMixin implements IMinecraft {
         OpenScreenEvent event = OpenScreenEvent.get(screen);
         MeteorClient.EVENT_BUS.post(event);
 
-        if (event.isCancelled()) ci.cancel();
+        if (event.isCancelled()) {
+            ci.cancel();
+            return;
+        }
+
+        Screen replacement = event.screen;
+        if (replacement != screen) {
+            ci.cancel();
+            MeteorClient.mc.execute(() -> MeteorClient.mc.setScreen(replacement));
+        }
     }
 
     @WrapOperation(method = "setScreen", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/KeyMapping;releaseAll()V"))

@@ -6,7 +6,7 @@ package meteordevelopment.meteorclient.tco;
 
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.events.game.OpenScreenEvent;
-import meteordevelopment.meteorclient.utils.PostInit;
+import meteordevelopment.meteorclient.utils.PreInit;
 import meteordevelopment.orbit.EventHandler;
 import meteordevelopment.orbit.EventPriority;
 import net.minecraft.client.gui.screens.Screen;
@@ -17,7 +17,7 @@ public class TcoClientFeatures {
 
     private TcoClientFeatures() {}
 
-    @PostInit
+    @PreInit
     public static void init() {
         MeteorClient.EVENT_BUS.subscribe(INSTANCE);
         MeteorClient.LOG.info("tco client features loaded");
@@ -30,6 +30,7 @@ public class TcoClientFeatures {
 
         if (!TcoBoot.isBootComplete() && screen instanceof TitleScreen) {
             event.screen = new XpBootScreen();
+            MeteorClient.LOG.info("Showing tco OS xp boot splash");
             return;
         }
 
