@@ -4,11 +4,30 @@ Java Minecraft utility client based on [Meteor Client](https://github.com/Meteor
 
 ## Features
 
-- **Rebrand** — Shows as **tco client** in mod list, chat prefix `[tco]`, HUD group, splashes
-- **Discord RPC** — App `1510546650597298221`, details `tcohack best hack`, image `subaru` (see [docs/discord-rpc.md](docs/discord-rpc.md))
-- **ClickGUI** — Compact RusherHack-style dark theme (Tco theme: smaller scale, left-aligned modules, blue accent)
-- **Windows XP boot** — XP-style progress splash before the title screen (first launch per session)
-- **Title music** — Bundled track from [YouTube](https://www.youtube.com/watch?v=iu_0kOfMGD0); re-fetch with `scripts/fetch-title-music.ps1`
+- **Rebrand** — tco client / tcohack RPC / custom splashes
+- **Discord RPC** — App `1510546650597298221`, `tcohack best hack`, `subaru` image
+- **XP boot splash** — procedural **tco OS xp** screen
+- **Title screen video** — full **60fps** playback from YouTube via **ffmpeg** (not PNG slideshow)
+- **Title audio** — extracted from the same video, synced loop
+
+## Title media (YouTube)
+
+Source: https://www.youtube.com/watch?v=iu_0kOfMGD0
+
+On first title screen visit the mod downloads to:
+
+`%APPDATA%\.minecraft\meteor-client\title\video.mp4`  
+`%APPDATA%\.minecraft\meteor-client\title\title_audio.wav`
+
+**Requirements:** `ffmpeg` on PATH (`winget install Gyan.FFmpeg`) and `python -m pip install yt-dlp`
+
+Or run manually:
+
+```powershell
+.\scripts\fetch-title-media.ps1
+```
+
+Minecraft cannot embed YouTube directly — ffmpeg decodes real MP4 frames to the GPU at 60fps.
 
 ## Build
 
@@ -16,14 +35,10 @@ Java Minecraft utility client based on [Meteor Client](https://github.com/Meteor
 ./gradlew build
 ```
 
-Output: `build/libs/tco-client-<version>.jar`
-
 ## Install
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft **26.1.2** (match `gradle/libs.versions.toml`).
-2. Copy the JAR into `.minecraft/mods`.
-3. Upload `docs/discord-assets/subaru.png` to your Discord app as asset **`subaru`** for RPC artwork.
+Minecraft **26.1.2** + Fabric Loader → place JAR in `.minecraft/mods`
 
 ## License
 
-GPL-3.0 — Meteor Client Copyright (c) Meteor Development. See [LICENSE](LICENSE).
+GPL-3.0 — Meteor Client Copyright (c) Meteor Development.

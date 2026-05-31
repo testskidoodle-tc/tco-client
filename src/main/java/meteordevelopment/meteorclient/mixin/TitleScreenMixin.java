@@ -7,6 +7,7 @@ package meteordevelopment.meteorclient.mixin;
 
 import meteordevelopment.meteorclient.systems.config.Config;
 import meteordevelopment.meteorclient.tco.TcoTitleOverlay;
+import meteordevelopment.meteorclient.tco.TcoTitleVideoPlayer;
 import meteordevelopment.meteorclient.tco.TitleScreenMusic;
 import meteordevelopment.meteorclient.utils.player.TitleScreenCredits;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -61,5 +62,6 @@ public abstract class TitleScreenMixin extends Screen {
     @Inject(method = "removed", at = @At("HEAD"))
     private void onRemoved(CallbackInfo ci) {
         TitleScreenMusic.stop();
+        TcoTitleVideoPlayer.stop();
     }
 }

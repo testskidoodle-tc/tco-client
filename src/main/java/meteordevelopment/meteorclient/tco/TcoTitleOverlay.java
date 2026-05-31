@@ -1,41 +1,26 @@
 /*
- * tco client — animated title splashes + YouTube video frame background
+ * tco client — animated title splashes + live video background
  */
 
 package meteordevelopment.meteorclient.tco;
 
-import meteordevelopment.meteorclient.MeteorClient;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
-import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
 import org.joml.Matrix3x2fStack;
 
-import java.util.ArrayList;
-import java.util.List;
+import static meteordevelopment.meteorclient.MeteorClient.mc;
 
 public final class TcoTitleOverlay {
-    private static final int FRAME_COUNT = 12;
-    private static final List<Identifier> FRAMES = new ArrayList<>();
-
     private static int ticks;
     private static int splashIndex;
-
-    static {
-        for (int i = 1; i <= FRAME_COUNT; i++) {
-            FRAMES.add(Identifier.fromNamespaceAndPath(
-                MeteorClient.MOD_ID,
-                "textures/tco/title/frame_%02d.png".formatted(i)
-            ));
-        }
-    }
 
     private TcoTitleOverlay() {}
 
     public static void tick() {
         ticks++;
+        TcoTitleVideoPlayer.tick();
+
         if (ticks % 140 == 0) {
             splashIndex = (splashIndex + 1) % TcoSplashes.ENTRIES.size();
         }
@@ -44,18 +29,11 @@ public final class TcoTitleOverlay {
     public static void reset() {
         ticks = 0;
         splashIndex = 0;
+        TcoMediaCache.ensureAsync(TcoTitleVideoPlayer::start);
     }
 
     public static void renderBackground(GuiGraphicsExtractor graphics, int width, int height) {
-        graphics.fill(0, 0, width, height, 0xFF000000);
-
-        if (FRAMES.isEmpty()) return;
-
-        int frame = (ticks / 3) % FRAME_COUNT;
-        Identifier texture = FRAMES.get(frame);
-
-        graphics.blit(RenderPipelines.GUI_TEXTURED, texture, 0, 0, 0, 0, width, height, width, height, width, height, ARGB.white(1f));
-        graphics.fill(0, 0, width, height, 0x59000000);
+        TcoTitleVideoPlayer.render(graphics, width, height);
     }
 
     public static void renderSplash(GuiGraphicsExtractor graphics, int width, int height) {
@@ -75,8 +53,8 @@ public final class TcoTitleOverlay {
         pose.scale(pulse, pulse);
 
         Component text = Component.literal(entry.text());
-        int textW = MeteorClient.mc.font.width(text);
-        graphics.text(MeteorClient.mc.font, text, -textW / 2, 0, color);
+        int textW = mc.font.width(text);
+        graphics.text(mc.font, text, -textW / 2, 0, color);
         pose.popMatrix();
     }
 
