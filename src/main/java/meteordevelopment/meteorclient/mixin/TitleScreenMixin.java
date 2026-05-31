@@ -36,18 +36,18 @@ public abstract class TitleScreenMixin extends Screen {
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
-        TcoTitleOverlay.tick();
+        TcoTitleOverlay.tick(width, height);
     }
 
     @Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
     private void onExtractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        TcoTitleOverlay.renderBackground(graphics, width, height);
+        TcoTitleOverlay.renderBackground(graphics, width, height, mouseX, mouseY);
         ci.cancel();
     }
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void onExtractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        TcoTitleOverlay.renderSplash(graphics, width, height);
+        TcoTitleOverlay.renderForeground(graphics, width, height);
 
         if (Config.get().titleScreenCredits.get()) TitleScreenCredits.render(graphics);
     }

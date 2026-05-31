@@ -1,5 +1,5 @@
 /*
- * tco client — animated title splashes + live video background
+ * tco client — title screen layers (video, grid network, splashes)
  */
 
 package meteordevelopment.meteorclient.tco;
@@ -17,9 +17,10 @@ public final class TcoTitleOverlay {
 
     private TcoTitleOverlay() {}
 
-    public static void tick() {
+    public static void tick(int width, int height) {
         ticks++;
         TcoTitleVideoPlayer.tick();
+        TcoTitleGridNetwork.tick(width, height);
 
         if (ticks % 140 == 0) {
             splashIndex = (splashIndex + 1) % TcoSplashes.ENTRIES.size();
@@ -29,11 +30,18 @@ public final class TcoTitleOverlay {
     public static void reset() {
         ticks = 0;
         splashIndex = 0;
+        TcoTitleGridNetwork.reset();
         TcoMediaCache.ensureAsync(TcoTitleVideoPlayer::start);
     }
 
-    public static void renderBackground(GuiGraphicsExtractor graphics, int width, int height) {
+    public static void renderBackground(GuiGraphicsExtractor graphics, int width, int height, int mouseX, int mouseY) {
+        TcoTitleGridNetwork.setMouse(mouseX, mouseY);
         TcoTitleVideoPlayer.render(graphics, width, height);
+    }
+
+    public static void renderForeground(GuiGraphicsExtractor graphics, int width, int height) {
+        TcoTitleGridNetwork.render(graphics, width, height);
+        renderSplash(graphics, width, height);
     }
 
     public static void renderSplash(GuiGraphicsExtractor graphics, int width, int height) {

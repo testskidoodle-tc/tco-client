@@ -1,5 +1,5 @@
 /*
- * tco client — 60fps title screen video via ffmpeg pipe → GPU texture
+ * tco client — 60fps title video: blurred full BG + sharp cropped center (ffmpeg vstack)
  */
 
 package meteordevelopment.meteorclient.tco;
@@ -8,7 +8,6 @@ import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.TextureFormat;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.renderer.Texture;
-import meteordevelopment.meteorclient.utils.network.MeteorExecutor;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
@@ -17,16 +16,24 @@ import net.minecraft.util.ARGB;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.List;
+
 import static meteordevelopment.meteorclient.MeteorClient.mc;
 
 public final class TcoTitleVideoPlayer {
-    public static final int VIDEO_WIDTH = 1280;
-    public static final int VIDEO_HEIGHT = 720;
-    private static final int FRAME_BYTES = VIDEO_WIDTH * VIDEO_HEIGHT * 3;
+    public static final int TEX_WIDTH = 1920;
+    public static final int BLUR_HEIGHT = 1080;
+    public static final int SHARP_HEIGHT = 540;
+    public static final int TEX_HEIGHT = BLUR_HEIGHT + SHARP_HEIGHT;
 
-    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath(MeteorClient.MOD_ID, "tco/title_video");
+    private static final int FRAME_BYTES = TEX_WIDTH * TEX_HEIGHT * 3;
+    private static final int BLUR_BYTES = TEX_WIDTH * BLUR_HEIGHT * 3;
+    private static final int SHARP_BYTES = TEX_WIDTH * SHARP_HEIGHT * 3;
 
-    private static Texture texture;
+    private static final Identifier BLUR_TEXTURE_ID = Identifier.fromNamespaceAndPath(MeteorClient.MOD_ID, "tco/title_video_blur");
+    private static final Identifier SHARP_TEXTURE_ID = Identifier.fromNamespaceAndPath(MeteorClient.MOD_ID, "tco/title_video_sharp");
+
+    private static Texture blurTexture;
+    private static Texture sharpTexture;
     private static Process process;
     private static Thread decodeThread;
     private static volatile boolean running;
@@ -35,7 +42,21 @@ public final class TcoTitleVideoPlayer {
     private static final Object frameLock = new Object();
     private static volatile boolean failed;
 
+    private static byte[] blurRgbaScratch;
+    private static byte[] sharpRgbaScratch;
+
     private TcoTitleVideoPlayer() {}
+
+    /** Crop + lanczos sharp center, blurred widescreen background, 60fps. */
+    private static String videoFilter() {
+        return ""
+            + "[0:v]crop=iw:iw*9/16:(iw-ow)/2:(ih-oh)/2,split=2[base][base2];"
+            + "[base]scale=" + TEX_WIDTH + ":" + BLUR_HEIGHT + ":force_original_aspect_ratio=increase,"
+            + "crop=" + TEX_WIDTH + ":" + BLUR_HEIGHT + ",boxblur=14:4,fps=60[bg];"
+            + "[base2]crop=iw*0.88:ih*0.88:(iw-ow)/2:(ih-oh)/2,"
+            + "scale=" + TEX_WIDTH + ":" + SHARP_HEIGHT + ":flags=lanczos,fps=60[fg];"
+            + "[bg][fg]vstack=inputs=2[out]";
+    }
 
     public static void start() {
         if (running || failed) return;
@@ -51,18 +72,21 @@ public final class TcoTitleVideoPlayer {
 
         stop();
 
-        texture = new Texture(VIDEO_WIDTH, VIDEO_HEIGHT, TextureFormat.RGBA8, FilterMode.LINEAR, FilterMode.LINEAR);
-        mc.getTextureManager().register(TEXTURE_ID, texture);
+        blurTexture = new Texture(TEX_WIDTH, BLUR_HEIGHT, TextureFormat.RGBA8, FilterMode.LINEAR, FilterMode.LINEAR);
+        sharpTexture = new Texture(TEX_WIDTH, SHARP_HEIGHT, TextureFormat.RGBA8, FilterMode.LINEAR, FilterMode.LINEAR);
+        mc.getTextureManager().register(BLUR_TEXTURE_ID, blurTexture);
+        mc.getTextureManager().register(SHARP_TEXTURE_ID, sharpTexture);
 
         String ffmpeg = TcoFfmpeg.getPath();
         List<String> cmd = List.of(
             ffmpeg,
             "-nostdin",
-            "-threads", "2",
+            "-threads", "4",
             "-stream_loop", "-1",
             "-i", TcoMediaCache.VIDEO.toString(),
             "-an",
-            "-vf", "scale=" + VIDEO_WIDTH + ":" + VIDEO_HEIGHT + ":flags=fast_bilinear,fps=60",
+            "-filter_complex", videoFilter(),
+            "-map", "[out]",
             "-f", "rawvideo",
             "-pix_fmt", "rgb24",
             "pipe:1"
@@ -80,7 +104,7 @@ public final class TcoTitleVideoPlayer {
             decodeThread.setDaemon(true);
             decodeThread.start();
 
-            MeteorClient.LOG.info("Title video playback started ({}x{} @ 60fps)", VIDEO_WIDTH, VIDEO_HEIGHT);
+            MeteorClient.LOG.info("Title video: {}x{} blur + {}x{} sharp @ 60fps", TEX_WIDTH, BLUR_HEIGHT, TEX_WIDTH, SHARP_HEIGHT);
         } catch (Exception e) {
             MeteorClient.LOG.error("Failed to start title video", e);
             failed = true;
@@ -108,11 +132,8 @@ public final class TcoTitleVideoPlayer {
         }
     }
 
-    private static byte[] rgbaScratch;
-
-    /** Upload latest frame (call from title screen tick on the client thread). */
     public static void tick() {
-        if (!running || texture == null) return;
+        if (!running || blurTexture == null || sharpTexture == null) return;
 
         byte[] frame;
         synchronized (frameLock) {
@@ -121,29 +142,54 @@ public final class TcoTitleVideoPlayer {
         if (frame == null) return;
 
         try {
-            texture.upload(rgbToRgba(frame));
+            blurRgbaScratch = rgbToRgba(frame, 0, BLUR_BYTES, blurRgbaScratch);
+            sharpRgbaScratch = rgbToRgba(frame, BLUR_BYTES, SHARP_BYTES, sharpRgbaScratch);
+            blurTexture.upload(blurRgbaScratch);
+            sharpTexture.upload(sharpRgbaScratch);
         } catch (Exception e) {
             MeteorClient.LOG.error("Title video upload error", e);
         }
     }
 
     public static void render(GuiGraphicsExtractor graphics, int width, int height) {
-        if (!running || texture == null) {
+        if (!running || blurTexture == null || sharpTexture == null) {
             graphics.fill(0, 0, width, height, 0xFF000000);
             return;
         }
 
         graphics.blit(
             RenderPipelines.GUI_TEXTURED,
-            TEXTURE_ID,
+            BLUR_TEXTURE_ID,
             0, 0,
             0, 0,
             width, height,
             width, height,
-            VIDEO_WIDTH, VIDEO_HEIGHT,
+            TEX_WIDTH, BLUR_HEIGHT,
             ARGB.white(1f)
         );
-        graphics.fill(0, 0, width, height, 0x33000000);
+
+        int panelW = (int) (width * 0.82f);
+        int panelH = (int) (panelW * (SHARP_HEIGHT / (float) TEX_WIDTH));
+        if (panelH > height * 0.55f) {
+            panelH = (int) (height * 0.55f);
+            panelW = (int) (panelH * (TEX_WIDTH / (float) SHARP_HEIGHT));
+        }
+        int panelX = (width - panelW) / 2;
+        int panelY = (height - panelH) / 2;
+
+        graphics.fill(panelX - 2, panelY - 2, panelX + panelW + 2, panelY + panelH + 2, 0x66000000);
+        graphics.blit(
+            RenderPipelines.GUI_TEXTURED,
+            SHARP_TEXTURE_ID,
+            panelX, panelY,
+            0, 0,
+            panelW, panelH,
+            panelW, panelH,
+            TEX_WIDTH, SHARP_HEIGHT,
+            ARGB.white(1f)
+        );
+
+        graphics.fill(0, 0, width, height, 0x44000000);
     }
 
     public static void stop() {
@@ -163,10 +209,16 @@ public final class TcoTitleVideoPlayer {
             latestFrame = null;
         }
 
-        if (texture != null) {
+        if (blurTexture != null || sharpTexture != null) {
             mc.execute(() -> {
-                mc.getTextureManager().release(TEXTURE_ID);
-                texture = null;
+                if (blurTexture != null) {
+                    mc.getTextureManager().release(BLUR_TEXTURE_ID);
+                    blurTexture = null;
+                }
+                if (sharpTexture != null) {
+                    mc.getTextureManager().release(SHARP_TEXTURE_ID);
+                    sharpTexture = null;
+                }
             });
         }
     }
@@ -185,16 +237,19 @@ public final class TcoTitleVideoPlayer {
         return true;
     }
 
-    private static byte[] rgbToRgba(byte[] rgb) {
-        int len = rgb.length / 3 * 4;
-        if (rgbaScratch == null || rgbaScratch.length != len) rgbaScratch = new byte[len];
+    private static byte[] rgbToRgba(byte[] rgb, int offset, int byteCount, byte[] scratch) {
+        int len = byteCount / 3 * 4;
+        byte[] buf = scratch;
+        if (buf == null || buf.length != len) buf = new byte[len];
 
-        for (int i = 0, j = 0; i < rgb.length; i += 3, j += 4) {
-            rgbaScratch[j] = rgb[i];
-            rgbaScratch[j + 1] = rgb[i + 1];
-            rgbaScratch[j + 2] = rgb[i + 2];
-            rgbaScratch[j + 3] = (byte) 255;
+        for (int i = 0, j = 0; i < byteCount; i += 3, j += 4) {
+            int idx = offset + i;
+            buf[j] = rgb[idx];
+            buf[j + 1] = rgb[idx + 1];
+            buf[j + 2] = rgb[idx + 2];
+            buf[j + 3] = (byte) 255;
         }
-        return rgbaScratch;
+
+        return buf;
     }
 }

@@ -78,7 +78,7 @@ public final class TcoMediaCache {
         cmd.add("-m");
         cmd.add("yt_dlp");
         cmd.add("-f");
-        cmd.add("best[height<=720]/best");
+        cmd.add("bestvideo[height<=1080]+bestaudio/best[height<=1080]");
         cmd.add("--merge-output-format");
         cmd.add("mp4");
         cmd.add("-o");
