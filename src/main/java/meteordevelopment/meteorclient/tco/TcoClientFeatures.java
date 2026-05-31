@@ -34,9 +34,7 @@ public class TcoClientFeatures {
             return;
         }
 
-        if (TcoBoot.isBootComplete() && screen instanceof TitleScreen) {
-            TitleScreenMusic.play();
-        } else if (!(screen instanceof TitleScreen)) {
+        if (!(screen instanceof TitleScreen)) {
             TitleScreenMusic.stop();
         }
     }

@@ -5,48 +5,24 @@
 
 package meteordevelopment.meteorclient.mixin;
 
-import meteordevelopment.meteorclient.systems.config.Config;
+import meteordevelopment.meteorclient.tco.TcoSplashes;
 import net.minecraft.client.gui.components.SplashRenderer;
 import net.minecraft.client.resources.SplashManager;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.List;
 import java.util.Random;
 
 @Mixin(SplashManager.class)
 public abstract class SplashManagerMixin {
-    @Unique
-    private boolean override = true;
-    @Unique
-    private static final Random random = new Random();
-    @Unique
-    private final List<String> meteorSplashes = getMeteorSplashes();
+    private static final Random RANDOM = new Random();
 
     @Inject(method = "getSplash", at = @At("HEAD"), cancellable = true)
     private void onApply(CallbackInfoReturnable<SplashRenderer> cir) {
-        if (Config.get() == null || !Config.get().titleScreenSplashes.get()) return;
-
-        if (override)
-            cir.setReturnValue(new SplashRenderer(Component.literal(meteorSplashes.get(random.nextInt(meteorSplashes.size())))));
-        override = !override;
+        // Hide vanilla yellow splash — TcoTitleOverlay draws animated custom splashes
+        cir.setReturnValue(new SplashRenderer(Component.empty()));
     }
-
-    @Unique
-    private static List<String> getMeteorSplashes() {
-        return List.of(
-            "tcohack best hack!",
-            "tco client",
-            "Based utility mod.",
-            "§6tco §fbest hack",
-            "§4github.com/testskidoodle-tc/tco-client",
-            "§4tcohack best hack",
-            "§6tco client"
-        );
-    }
-
 }

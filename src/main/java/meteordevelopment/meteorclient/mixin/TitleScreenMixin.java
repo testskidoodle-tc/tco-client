@@ -6,6 +6,8 @@
 package meteordevelopment.meteorclient.mixin;
 
 import meteordevelopment.meteorclient.systems.config.Config;
+import meteordevelopment.meteorclient.tco.TcoTitleOverlay;
+import meteordevelopment.meteorclient.tco.TitleScreenMusic;
 import meteordevelopment.meteorclient.utils.player.TitleScreenCredits;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -25,8 +27,27 @@ public abstract class TitleScreenMixin extends Screen {
         super(title);
     }
 
+    @Inject(method = "init", at = @At("TAIL"))
+    private void onInit(CallbackInfo ci) {
+        TcoTitleOverlay.reset();
+        TitleScreenMusic.play();
+    }
+
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void onTick(CallbackInfo ci) {
+        TcoTitleOverlay.tick();
+    }
+
+    @Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
+    private void onExtractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        TcoTitleOverlay.renderBackground(graphics, width, height);
+        ci.cancel();
+    }
+
     @Inject(method = "extractRenderState", at = @At("TAIL"))
-    private void onExtractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a, CallbackInfo ci) {
+    private void onExtractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        TcoTitleOverlay.renderSplash(graphics, width, height);
+
         if (Config.get().titleScreenCredits.get()) TitleScreenCredits.render(graphics);
     }
 
@@ -35,5 +56,10 @@ public abstract class TitleScreenMixin extends Screen {
         if (Config.get().titleScreenCredits.get() && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             if (TitleScreenCredits.onClicked(event.x(), event.y())) cir.setReturnValue(true);
         }
+    }
+
+    @Inject(method = "removed", at = @At("HEAD"))
+    private void onRemoved(CallbackInfo ci) {
+        TitleScreenMusic.stop();
     }
 }
